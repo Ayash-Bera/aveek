@@ -1,7 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { query } from '../db/index.js';
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 export async function generateAggregateSummary(sessionId) {
   const { rows: summaries } = await query(
@@ -18,16 +18,13 @@ export async function generateAggregateSummary(sessionId) {
     .map((r, i) => `${i + 1}. [${r.sentiment}] ${r.summary}`)
     .join('\n');
 
-  const response = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 512,
-    messages: [{
-      role: 'user',
-      content: `Given these ${summaries.length} stakeholder comment summaries:\n\n${summaryList}\n\nWrite a concise 150-word executive overview highlighting key themes, sentiment distribution, and top concerns. Be specific and actionable.`,
-    }],
-  });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
-  const aggregateSummary = response.content[0].text.trim();
+  const result = await model.generateContent(
+    `Given these ${summaries.length} stakeholder comment summaries:\n\n${summaryList}\n\nWrite a concise 150-word executive overview highlighting key themes, sentiment distribution, and top concerns. Be specific and actionable.`
+  );
+
+  const aggregateSummary = result.response.text().trim();
 
   await query(
     `UPDATE sessions SET aggregate_summary = $1, status = 'done' WHERE id = $2`,

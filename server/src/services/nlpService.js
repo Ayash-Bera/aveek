@@ -1,8 +1,17 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { franc } from 'franc';
 import { query } from '../db/index.js';
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+const SYSTEM_INSTRUCTION = `You are a sentiment analysis assistant. Analyze the given stakeholder comment and respond ONLY with valid JSON matching this exact schema:
+{
+  "sentiment": "positive" | "negative" | "neutral",
+  "score": number between -1.0 and 1.0,
+  "summary": "one sentence summary under 20 words",
+  "keywords": ["array", "of", "up", "to", "8", "key", "terms"]
+}
+Do not include any text outside the JSON object.`;
 
 export async function analyzeComment(commentBody) {
   const text = preprocessText(commentBody);
@@ -12,25 +21,18 @@ export async function analyzeComment(commentBody) {
   const lang = franc(text);
   if (lang === 'und') return null;
 
-  const response = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 512,
-    system: `You are a sentiment analysis assistant. Analyze the given stakeholder comment and respond ONLY with valid JSON matching this exact schema:
-{
-  "sentiment": "positive" | "negative" | "neutral",
-  "score": number between -1.0 and 1.0,
-  "summary": "one sentence summary under 20 words",
-  "keywords": ["array", "of", "up", "to", "8", "key", "terms"]
-}
-Do not include any text outside the JSON object.`,
-    messages: [{ role: 'user', content: text }],
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.0-flash',
+    systemInstruction: SYSTEM_INSTRUCTION,
   });
 
-  const raw = response.content[0].text.trim();
+  const result = await model.generateContent(text);
+  const raw = result.response.text().trim();
 
   let parsed;
   try {
-    parsed = JSON.parse(raw);
+    const cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+    parsed = JSON.parse(cleaned);
   } catch {
     return null;
   }
