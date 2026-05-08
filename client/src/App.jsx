@@ -2,6 +2,7 @@ import { useState } from 'react';
 import UploadZone from './components/UploadZone.jsx';
 import JobPoller from './components/JobPoller.jsx';
 import AnalysisDashboard from './components/AnalysisDashboard.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 
 export default function App() {
   const [sessionId, setSessionId] = useState(null);
@@ -44,7 +45,9 @@ export default function App() {
           />
         )}
         {view === 'dashboard' && (
-          <AnalysisDashboard sessionId={sessionId} onReset={handleReset} />
+          <ErrorBoundary>
+            <AnalysisDashboard sessionId={sessionId} onReset={handleReset} />
+          </ErrorBoundary>
         )}
       </main>
     </div>

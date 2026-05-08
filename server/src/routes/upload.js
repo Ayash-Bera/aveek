@@ -2,10 +2,11 @@ import { Router } from 'express';
 import { upload, parseFile, cleanupFile } from '../services/fileParser.js';
 import { query } from '../db/index.js';
 import { nlpQueue } from '../queue.js';
+import { uploadRateLimit } from '../middleware/rateLimit.js';
 
 const router = Router();
 
-router.post('/', upload.single('file'), async (req, res, next) => {
+router.post('/', uploadRateLimit, upload.single('file'), async (req, res, next) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded', code: 'NO_FILE' });
 
   try {
