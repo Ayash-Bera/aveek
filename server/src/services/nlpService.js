@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { UnrecoverableError } from 'bullmq';
 import { franc } from 'franc';
 import { query } from '../db/index.js';
 
@@ -26,7 +27,16 @@ export async function analyzeComment(commentBody) {
     systemInstruction: SYSTEM_INSTRUCTION,
   });
 
-  const result = await model.generateContent(text);
+  let result;
+  try {
+    result = await model.generateContent(text);
+  } catch (err) {
+    const msg = err?.message ?? '';
+    if (msg.includes('limit: 0') || msg.includes('free_tier_requests')) {
+      throw new UnrecoverableError('Daily quota exhausted. Wait until quota resets.');
+    }
+    throw err;
+  }
   const raw = result.response.text().trim();
 
   let parsed;

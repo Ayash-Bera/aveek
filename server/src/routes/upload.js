@@ -38,7 +38,7 @@ router.post('/', uploadRateLimit, upload.single('file'), async (req, res, next) 
       commentIds.map(({ id, body }) => ({
         name: 'analyze-comment',
         data: { sessionId: session.id, commentId: id, body, totalComments: validComments.length },
-        opts: { attempts: 3, backoff: { type: 'exponential', delay: 2000 } },
+        opts: { attempts: 5, backoff: { type: 'exponential', delay: 60_000 } },
       }))
     );
 

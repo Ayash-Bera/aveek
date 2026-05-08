@@ -1,4 +1,4 @@
-import { Worker } from 'bullmq';
+import { Worker, UnrecoverableError } from 'bullmq';
 import connection from '../redis.js';
 import { query } from '../db/index.js';
 import { analyzeComment, upsertKeywords } from '../services/nlpService.js';
@@ -40,18 +40,24 @@ const worker = new Worker(
   },
   {
     connection,
-    concurrency: 5,
+    concurrency: 1,
+    limiter: {
+      max: 10,
+      duration: 60_000,
+    },
   }
 );
 
 worker.on('failed', async (job, err) => {
   console.error(`Job ${job?.id} failed:`, err.message);
 
-  if (job?.data?.sessionId) {
-    await query(
-      `UPDATE sessions SET status = 'failed' WHERE id = $1 AND status = 'processing'`,
-      [job.data.sessionId]
-    ).catch(() => {});
+  if (err instanceof UnrecoverableError) {
+    if (job?.data?.sessionId) {
+      await query(
+        `UPDATE sessions SET status = 'failed' WHERE id = $1 AND status = 'processing'`,
+        [job.data.sessionId]
+      ).catch(() => {});
+    }
   }
 });
 
